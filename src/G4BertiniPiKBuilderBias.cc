@@ -7,6 +7,9 @@
 #include <G4ComponentGGHadronNucleusXsc.hh>
 #include <G4CrossSectionInelastic.hh>
 #include <G4HadronicParameters.hh>
+#include <G4PionPlus.hh>
+#include <G4PionMinus.hh>
+#include <G4KaonPlus.hh>
 
 
 G4BertiniPiKBuilderBias::
@@ -17,63 +20,27 @@ G4BertiniPiKBuilderBias(double pion_plus_bias, double kaon_plus_bias)
    theMax = G4HadronicParameters::Instance()->GetMaxEnergyTransitionFTF_Cascade();
    theModel = new G4CascadeInterface;
    theModel->SetMinEnergy(theMin);
-   theModel->SetMaxEnergy(theMax); 
+   theModel->SetMaxEnergy(theMax);
  }
 
 void G4BertiniPiKBuilderBias::
-Build(G4PionPlusInelasticProcess * aP)
+Build(G4HadronInelasticProcess * aP)
  {
    theModel->SetMinEnergy(theMin);
    theModel->SetMaxEnergy(theMax);
-   aP->AddDataSet( new G4BGGPionInelasticXS( G4PionPlus::Definition() ) );
-   std::cout << "Biasing PiPlus: " << fPionPlusBias << std::endl;
-   aP->MultiplyCrossSectionBy(fPionPlusBias);
+   const G4ParticleDefinition* particle = aP->GetParticleDefinition();
+   if (particle == G4PionPlus::Definition()) {
+     aP->AddDataSet( new G4BGGPionInelasticXS( G4PionPlus::Definition() ) );
+     std::cout << "Biasing PiPlus: " << fPionPlusBias << std::endl;
+     aP->MultiplyCrossSectionBy(fPionPlusBias);
+   } else if (particle == G4PionMinus::Definition()) {
+     aP->AddDataSet( new G4BGGPionInelasticXS( G4PionMinus::Definition() ) );
+   } else if (particle == G4KaonPlus::Definition()) {
+     aP->AddDataSet(kaonxs);
+     std::cout << "Multiplying kaon by " << fKaonPlusBias << std::endl;
+     aP->MultiplyCrossSectionBy(fKaonPlusBias);
+   } else {
+     aP->AddDataSet(kaonxs);
+   }
    aP->RegisterMe(theModel);
- }
-
-void G4BertiniPiKBuilderBias::
-Build(G4PionMinusInelasticProcess * aP)
- {
-   theModel->SetMinEnergy(theMin);
-   theModel->SetMaxEnergy(theMax);
-   aP->AddDataSet( new G4BGGPionInelasticXS( G4PionMinus::Definition() ) );
-   aP->RegisterMe(theModel);
- }
-
-void G4BertiniPiKBuilderBias::
-Build(G4KaonPlusInelasticProcess * aP)
- {
-   aP->RegisterMe(theModel);
-   theModel->SetMinEnergy(theMin);
-   theModel->SetMaxEnergy(theMax);
-   aP->AddDataSet(kaonxs);
-   std::cout << "Multiplying kaon by " << fKaonPlusBias << std::endl;
-   aP->MultiplyCrossSectionBy(fKaonPlusBias);
- }
-
-void G4BertiniPiKBuilderBias::
-Build(G4KaonMinusInelasticProcess * aP)
- {
-   aP->RegisterMe(theModel);
-   theModel->SetMinEnergy(theMin);
-   theModel->SetMaxEnergy(theMax);
-   aP->AddDataSet(kaonxs);
- }
-
-void G4BertiniPiKBuilderBias::
-Build(G4KaonZeroLInelasticProcess * aP)
- {
-   aP->RegisterMe(theModel);
-   theModel->SetMinEnergy(theMin);
-   theModel->SetMaxEnergy(theMax);
-   aP->AddDataSet(kaonxs);
- }
-
-void G4BertiniPiKBuilderBias::
-Build(G4KaonZeroSInelasticProcess * aP)
- {
-   aP->RegisterMe(theModel);
-   theModel->SetMinEnergy(theMin);
-   theModel->SetMaxEnergy(theMax);
-   aP->AddDataSet(kaonxs);
  }
