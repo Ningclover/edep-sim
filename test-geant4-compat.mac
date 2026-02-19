@@ -1,0 +1,9 @@
+# Minimal test macro for Geant4 11 compatibility
+# Shoots 3 muons through the example geometry and writes output.
+# Run with:
+#   edep-sim -C -u -e 3 -o test-output.root test-geant4-compat.mac
+
+/gps/particle mu+
+/gps/energy 1000 MeV
+/gps/position 0.0 0.0 0.0 cm
+/gps/direction 0 0 1

@@ -15,3 +15,6 @@ Makefile
 *.pcm
 *.png
 build/
+rebuid.sh
+TUTORIAL.md
+validate/
