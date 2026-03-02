@@ -4,6 +4,7 @@
 #define EDepSim_PersistencyManager_h 1
 
 #include "TG4Event.h"
+#include "TG4PhotonHit.h"
 
 #include <G4VPersistencyManager.hh>
 #include <G4StepStatus.hh>
@@ -247,6 +248,10 @@ private:
     /// Fill a container of hit segments.
     void SummarizeHitSegments(std::vector<TG4HitSegment>& segments,
                               G4VHitsCollection* hits);
+
+    /// Fill the map of photon sensitive detectors (PhotonSD hits).
+    void SummarizePhotonDetectors(TG4PhotonHitDetectors& photonHits,
+                                  const G4Event* event);
 
     /// Fill the map of sensitive detectors which use hit segments as the
     /// Copy and map the contributing trajectories from the vector of

@@ -4,6 +4,7 @@
 #include "TG4PrimaryVertex.h"
 #include "TG4Trajectory.h"
 #include "TG4HitSegment.h"
+#include "TG4PhotonHit.h"
 
 #include <TObject.h>
 
@@ -38,6 +39,10 @@ public:
     /// map is keyed using the sensitive volume name.
     TG4HitSegmentDetectors SegmentDetectors;
 
-    ClassDef(TG4Event,1)
+    /// A map of photon-detector names and vectors of optical-photon hits.
+    /// Keyed by the sensitive-detector name (e.g. "PhotonDetector").
+    TG4PhotonHitDetectors PhotonHits;
+
+    ClassDef(TG4Event,2)
 };
 #endif

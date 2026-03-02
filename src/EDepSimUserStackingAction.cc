@@ -32,9 +32,11 @@ EDepSim::UserStackingAction::ClassifyNewTrack(const G4Track* aTrack) {
         if (aTrack->GetKineticEnergy() < 10.*CLHEP::keV) return fKill;
     }
 
-    if (particle->GetParticleName() == "opticalphoton") {
-        return fKill;
-    }
+    // Optical photons are allowed to propagate so they can reach the
+    // photon sensor sensitive detectors (EDepSimPhotonSD).
+    // if (particle->GetParticleName() == "opticalphoton") {
+    //     return fKill;
+    // }
 
     if (particle->GetParticleName() == "thermalelectron") {
         return fKill;

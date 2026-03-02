@@ -1,5 +1,6 @@
 #include "EDepSimSDFactory.hh"
 #include "EDepSimSegmentSD.hh"
+#include "EDepSimPhotonSD.hh"
 #include "EDepSimException.hh"
 
 #include <G4SDManager.hh>
@@ -19,6 +20,9 @@ G4VSensitiveDetector* EDepSim::SDFactory::MakeSD(G4String name) {
     if (!sd) {
         if (fType == "segment") {
             sd = new EDepSim::SegmentSD(name);
+        }
+        else if (fType == "photon") {
+            sd = new EDepSim::PhotonSD(name);
         }
         else {
             EDepSimError("No such sensitive detector " << name);

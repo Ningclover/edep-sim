@@ -42,6 +42,10 @@
 
 #include <G4RegionStore.hh>
 
+#include <G4OpticalSurface.hh>
+#include <G4LogicalSkinSurface.hh>
+#include <G4MaterialPropertiesTable.hh>
+
 #include <queue>
 
 EDepSim::UserDetectorConstruction::UserDetectorConstruction() {
@@ -268,7 +272,11 @@ void EDepSim::UserDetectorConstruction::ConstructSDandField() {
             }
             EDepSimLog("Collect energy deposition for " << aux->first->GetName()
                        << " in " << auxItem->value);
-            EDepSim::SDFactory factory("segment");
+            // Use the photon SD type for volumes tagged as "PhotonDetector";
+            // everything else uses the default segment SD.
+            G4String sdType = "segment";
+            if (auxItem->value == "PhotonDetector") sdType = "photon";
+            EDepSim::SDFactory factory(sdType);
             aux->first->SetSensitiveDetector(factory.MakeSD(auxItem->value));
         }
     }
@@ -414,6 +422,93 @@ void EDepSim::UserDetectorConstruction::ConstructSDandField() {
             throw std::runtime_error("Field not created");
         }
         logVolume->SetFieldManager(manager,true);
+    }
+
+    ///////////////////////////////////////////////////////////////
+    // Build G4LogicalSkinSurface for volumes that carry OpSurface* aux tags.
+    //
+    // Supported aux types: OpSurfaceModel, OpSurfaceType, OpSurfaceFinish,
+    //   OpReflectivity, OpEfficiency, OpTransmittance.
+    // A skin surface is created whenever at least OpSurfaceModel is present.
+    {
+        // Map model-name strings to G4OpticalSurfaceModel enum
+        auto parseModel = [](const std::string& s) -> G4OpticalSurfaceModel {
+            if (s == "unified")  return unified;
+            if (s == "glisur")   return glisur;
+            if (s == "LUT")      return LUT;
+            return glisur; // default
+        };
+        auto parseType = [](const std::string& s) -> G4SurfaceType {
+            if (s == "dielectric_metal")       return dielectric_metal;
+            if (s == "dielectric_dielectric")  return dielectric_dielectric;
+            if (s == "dielectric_LUT")         return dielectric_LUT;
+            return dielectric_metal; // default
+        };
+        auto parseFinish = [](const std::string& s) -> G4OpticalSurfaceFinish {
+            if (s == "polished")            return polished;
+            if (s == "polishedfrontpainted")return polishedfrontpainted;
+            if (s == "polishedbackpainted") return polishedbackpainted;
+            if (s == "ground")              return ground;
+            if (s == "groundfrontpainted")  return groundfrontpainted;
+            if (s == "groundbackpainted")   return groundbackpainted;
+            return polished; // default
+        };
+
+        for (G4GDMLAuxMapType::const_iterator
+                 aux = fGDMLParser->GetAuxMap()->begin();
+             aux != fGDMLParser->GetAuxMap()->end();
+             ++aux) {
+            G4LogicalVolume* lv = aux->first;
+            const G4GDMLAuxListType& items = aux->second;
+
+            // Collect OpSurface properties from the auxiliary list
+            std::string model_s, type_s, finish_s;
+            double reflectivity = -1.0, efficiency = -1.0, transmittance = -1.0;
+
+            for (const auto& it : items) {
+                if      (it.type == "OpSurfaceModel")  model_s    = it.value;
+                else if (it.type == "OpSurfaceType")   type_s     = it.value;
+                else if (it.type == "OpSurfaceFinish") finish_s   = it.value;
+                else if (it.type == "OpReflectivity")  reflectivity  = std::stod(it.value);
+                else if (it.type == "OpEfficiency")    efficiency    = std::stod(it.value);
+                else if (it.type == "OpTransmittance") transmittance = std::stod(it.value);
+            }
+
+            if (model_s.empty()) continue; // no optical surface for this volume
+
+            G4OpticalSurface* opSurf = new G4OpticalSurface(
+                lv->GetName() + "_surf",
+                parseModel(model_s),
+                finish_s.empty() ? polished : parseFinish(finish_s),
+                parseType(type_s));
+
+            // Build a one-entry material properties table
+            G4MaterialPropertiesTable* mpt = new G4MaterialPropertiesTable();
+            // Use a two-point flat vector spanning the visible+UV range (1–10 eV)
+            const G4int N = 2;
+            G4double energies[N] = {1.0*eV, 10.0*eV};
+            if (reflectivity >= 0.0) {
+                G4double vals[N] = {reflectivity, reflectivity};
+                mpt->AddProperty("REFLECTIVITY", energies, vals, N);
+            }
+            if (efficiency >= 0.0) {
+                G4double vals[N] = {efficiency, efficiency};
+                mpt->AddProperty("EFFICIENCY", energies, vals, N);
+            }
+            if (transmittance >= 0.0) {
+                G4double vals[N] = {transmittance, transmittance};
+                mpt->AddProperty("TRANSMITTANCE", energies, vals, N);
+            }
+            opSurf->SetMaterialPropertiesTable(mpt);
+
+            new G4LogicalSkinSurface(lv->GetName() + "_skin", lv, opSurf);
+            EDepSimLog("Optical skin surface for " << lv->GetName()
+                       << " model=" << model_s
+                       << " type=" << type_s
+                       << " finish=" << finish_s
+                       << " R=" << reflectivity
+                       << " eff=" << efficiency);
+        }
     }
 
     ///////////////////////////////////////////////////////////////

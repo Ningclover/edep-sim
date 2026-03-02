@@ -10,6 +10,7 @@
 #include "EDepSimHitSegment.hh"
 #include "EDepSimRootGeometryManager.hh"
 
+#include "EDepSimPhotonManager.hh"
 #include "EDepSimLog.hh"
 
 #include <G4Event.hh>
@@ -129,6 +130,7 @@ void EDepSim::UserEventAction::BeginOfEventAction(const G4Event* evt) {
     }
 
     EDepSim::TrajectoryMap::Clear();
+    EDepSim::PhotonManager::Get()->Clear();
 }
 
 void EDepSim::UserEventAction::EndOfEventAction(const G4Event* evt) {

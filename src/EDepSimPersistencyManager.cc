@@ -6,6 +6,7 @@
 
 #include "EDepSimPersistencyManager.hh"
 #include "EDepSimPersistencyMessenger.hh"
+#include "EDepSimPhotonManager.hh"
 #include "EDepSimVertexInfo.hh"
 #include "EDepSimTrajectory.hh"
 #include "EDepSimTrajectoryPoint.hh"
@@ -222,6 +223,9 @@ bool EDepSim::PersistencyManager::UpdateSummaries(const G4Event* event) {
     SummarizeSegmentDetectors(fEventSummary.SegmentDetectors, event);
     EDepSimLog("   Segment Detectors "
                << fEventSummary.SegmentDetectors.size());
+
+    SummarizePhotonDetectors(fEventSummary.PhotonHits, event);
+    EDepSimLog("   Photon Detectors " << fEventSummary.PhotonHits.size());
 
     return true;
 }
@@ -843,8 +847,8 @@ EDepSim::PersistencyManager::SelectTrajectoryPoints(std::vector<int>& selected,
         // Not much energy deposit...
         if (edepPoint->GetProcessDeposit() < GetTrajectoryPointDeposit())
             continue;
-        // Don't save optical photons...
-        if (edepPoint->GetProcessType() == fOptical) continue;
+        // Save optical process points (reflections, scattering bounces).
+        // if (edepPoint->GetProcessType() == fOptical) continue;
         // Not a physics step...
         if (edepPoint->GetProcessType() == fGeneral) continue;
         if (edepPoint->GetProcessType() == fUserDefined) continue;
@@ -863,7 +867,8 @@ EDepSim::PersistencyManager::SelectTrajectoryPoints(std::vector<int>& selected,
     selected.erase(std::unique(selected.begin(), selected.end()),
                    selected.end());
 
-    if (ndTraj->GetSDEnergyDeposit() < 1*eV) return;
+    // Don't early-return for optical photons (they deposit no ionisation energy).
+    // if (ndTraj->GetSDEnergyDeposit() < 1*eV) return;   
 
     double desiredAccuracy = GetTrajectoryPointAccuracy();
     // Make sure that the trajectory accuracy stays in tolerance.
@@ -887,4 +892,23 @@ EDepSim::PersistencyManager::SelectTrajectoryPoints(std::vector<int>& selected,
                        selected.end());
         if (!addPoint) break;
     }
+}
+
+void
+EDepSim::PersistencyManager::SummarizePhotonDetectors(
+    TG4PhotonHitDetectors& dest,
+    const G4Event*) {
+    dest.clear();
+
+    // Read all photon endpoints collected by PostUserTrackingAction.
+    // Every optical photon is recorded here regardless of where it ended up.
+    // CopyNo >= 0  → photon was absorbed inside that sensor tile.
+    // CopyNo == -1 → photon ended somewhere other than a sensor (wall, etc.).
+    const TG4PhotonHitContainer& hits =
+        EDepSim::PhotonManager::Get()->GetHits();
+
+    if (hits.empty()) return;
+
+    dest["AllPhotons"] = hits;
+    EDepSimLog("   Photons (all endpoints) : " << hits.size());
 }
