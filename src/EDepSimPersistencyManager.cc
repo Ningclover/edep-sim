@@ -534,6 +534,8 @@ void EDepSim::PersistencyManager::MarkTrajectories(const G4Event* event) {
     for (int i=0; i < hitCollections->GetNumberOfCollections(); ++i) {
         G4VHitsCollection* g4Hits = hitCollections->GetHC(i);
         if (g4Hits->GetSize()<1) continue;
+        // PhotonSD stores PhotonHit objects, not HitSegment — skip it.
+        if (g4Hits->GetName() == "PhotonHits") continue;
         for (unsigned int h=0; h<g4Hits->GetSize(); ++h) {
             EDepSim::HitSegment* g4Hit
                 = dynamic_cast<EDepSim::HitSegment*>(g4Hits->GetHit(h));
@@ -907,8 +909,11 @@ EDepSim::PersistencyManager::SummarizePhotonDetectors(
     const TG4PhotonHitContainer& hits =
         EDepSim::PhotonManager::Get()->GetHits();
 
+    G4cout << "[DBG] SummarizePhotonDetectors: hits.size()=" << hits.size() << G4endl;
     if (hits.empty()) return;
 
+    G4cout << "[DBG] SummarizePhotonDetectors: assigning to dest" << G4endl;
     dest["AllPhotons"] = hits;
+    G4cout << "[DBG] SummarizePhotonDetectors: done" << G4endl;
     EDepSimLog("   Photons (all endpoints) : " << hits.size());
 }

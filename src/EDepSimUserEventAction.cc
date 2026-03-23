@@ -146,6 +146,9 @@ void EDepSim::UserEventAction::EndOfEventAction(const G4Event* evt) {
     for (int i=0; i<hcT->entries(); ++i) {
         G4String SDname = hcT->GetSDname(i);
         G4String HCname = hcT->GetHCname(i);
+        // PhotonSD stores PhotonHit objects, not HitSegment objects.
+        // Skip it here — photon hits are handled by PhotonManager separately.
+        if (HCname == "PhotonHits") continue;
         int HCId = sdM->GetCollectionID(SDname+"/"+HCname);
         G4VHitsCollection* g4Hits = HCofEvent->GetHC(HCId);
         if (g4Hits->GetSize()<1) {

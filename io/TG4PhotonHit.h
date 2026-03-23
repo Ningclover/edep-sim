@@ -14,16 +14,18 @@ class TG4PhotonHit : public TObject {
 public:
     TG4PhotonHit()
         : Position(0,0,0), Direction(0,0,0),
-          Time(0), Energy(0), Wavelength(0), CopyNo(-1) {}
+          Time(0), Energy(0), Wavelength(0), CopyNo(-1), Detected(false) {}
     virtual ~TG4PhotonHit() {}
 
-    /// Absorption point in the sensor volume (mm).
+    /// Final position of the photon (mm).
+    /// If Detected=true, this is the entry point into the sensor volume.
+    /// If Detected=false, this is wherever the photon was absorbed or lost.
     TVector3 Position;
 
-    /// Photon momentum direction at the moment of absorption (unit vector).
+    /// Photon momentum direction at the final step (unit vector).
     TVector3 Direction;
 
-    /// Global time of absorption (ns).
+    /// Global time at the final step (ns).
     Double_t Time;
 
     /// Photon energy (MeV).
@@ -32,10 +34,16 @@ public:
     /// Photon wavelength derived from energy: λ = hc/E (nm).
     Double_t Wavelength;
 
-    /// Copy number of the physical sensor volume that recorded the hit (0-based).
+    /// Copy number of the sensor tile (0-based, 0-24 for the 5x5 grid).
+    /// -1 if the photon did not reach a sensor (Detected=false).
     Int_t CopyNo;
 
-    ClassDef(TG4PhotonHit, 1)
+    /// True if the photon was killed by the PhotonSD sensitive detector,
+    /// i.e. it reached and was absorbed by a sensor tile.
+    /// False if the photon died elsewhere (bulk absorption, wall, etc.).
+    Bool_t Detected;
+
+    ClassDef(TG4PhotonHit, 2)
 };
 
 /// A container of photon hits for one sensitive detector.

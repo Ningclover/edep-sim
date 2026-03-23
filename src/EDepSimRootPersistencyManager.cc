@@ -87,11 +87,15 @@ bool EDepSim::RootPersistencyManager::Store(const G4Event* anEvent) {
         return false;
     }
 
+    G4cout << "[DBG] Store: calling UpdateSummaries" << G4endl;
     bool save = UpdateSummaries(anEvent);
+    G4cout << "[DBG] Store: UpdateSummaries done, save=" << save << G4endl;
 
     if (save) {
         fOutput->cd();
+        G4cout << "[DBG] Store: calling fEventTree->Fill()" << G4endl;
         fEventTree->Fill();
+        G4cout << "[DBG] Store: Fill() done" << G4endl;
 
         auto genAction = dynamic_cast<const EDepSim::UserPrimaryGeneratorAction*>(
             G4RunManager::GetRunManager()->GetUserPrimaryGeneratorAction());
