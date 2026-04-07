@@ -37,6 +37,8 @@
 #include <G4LogicalVolumeStore.hh>
 #include <G4PhysicalVolumeStore.hh>
 #include <G4MaterialPropertiesTable.hh>
+#include <G4OpticalSurface.hh>
+#include <G4LogicalSkinSurface.hh>
 
 #include <G4FieldManager.hh>
 
@@ -296,6 +298,87 @@ void EDepSim::UserDetectorConstruction::ConstructSDandField() {
             aux->first->SetSensitiveDetector(
                 factory.MakeSD(auxItem->value,type));
         }
+    }
+
+    // Build G4LogicalSkinSurface objects from OpSurface* auxiliary parameters.
+    // Supported auxtypes per logical volume:
+    //   OpSurfaceModel    : glisur | unified | LUT | DAVIS (default: glisur)
+    //   OpSurfaceType     : dielectric_metal | dielectric_dielectric |
+    //                       dielectric_LUT | dielectric_LUTDAVIS (default: dielectric_metal)
+    //   OpSurfaceFinish   : polished | ground | ... (default: polished)
+    //   OpReflectivity    : float in [0,1]  (default: 1.0)
+    //   OpEfficiency      : float in [0,1]  (default: 0.0)
+    // A skin surface is only created when at least one OpSurface* aux is present.
+    for (G4GDMLAuxMapType::const_iterator
+             aux = fGDMLParser->GetAuxMap()->begin();
+         aux != fGDMLParser->GetAuxMap()->end();
+         ++aux) {
+        G4LogicalVolume* logVol = aux->first;
+
+        // Collect optical surface parameters for this volume.
+        bool hasOpSurface = false;
+        G4String modelStr   = "glisur";
+        G4String typeStr    = "dielectric_metal";
+        G4String finishStr  = "polished";
+        double reflectivity = 1.0;
+        double efficiency   = 0.0;
+
+        for (G4GDMLAuxListType::const_iterator auxItem = aux->second.begin();
+             auxItem != aux->second.end(); ++auxItem) {
+            if (auxItem->type == "OpSurfaceModel") {
+                modelStr = auxItem->value; hasOpSurface = true;
+            } else if (auxItem->type == "OpSurfaceType") {
+                typeStr = auxItem->value;  hasOpSurface = true;
+            } else if (auxItem->type == "OpSurfaceFinish") {
+                finishStr = auxItem->value; hasOpSurface = true;
+            } else if (auxItem->type == "OpReflectivity") {
+                reflectivity = std::stod(auxItem->value); hasOpSurface = true;
+            } else if (auxItem->type == "OpEfficiency") {
+                efficiency = std::stod(auxItem->value); hasOpSurface = true;
+            }
+        }
+
+        if (!hasOpSurface) continue;
+
+        // Map string → Geant4 enum
+        G4OpticalSurfaceModel model = glisur;
+        if      (modelStr == "unified") model = unified;
+        else if (modelStr == "LUT")     model = LUT;
+        else if (modelStr == "DAVIS")   model = DAVIS;
+
+        G4SurfaceType type = dielectric_metal;
+        if      (typeStr == "dielectric_dielectric") type = dielectric_dielectric;
+        else if (typeStr == "dielectric_LUT")        type = dielectric_LUT;
+        else if (typeStr == "dielectric_LUTDAVIS")   type = dielectric_LUTDAVIS;
+
+        G4OpticalSurfaceFinish finish = polished;
+        if      (finishStr == "ground")              finish = ground;
+        else if (finishStr == "polishedfrontpainted") finish = polishedfrontpainted;
+        else if (finishStr == "groundfrontpainted")  finish = groundfrontpainted;
+        else if (finishStr == "polishedbackpainted")  finish = polishedbackpainted;
+        else if (finishStr == "groundbackpainted")    finish = groundbackpainted;
+
+        // Build the surface and attach MPT
+        G4String surfName = logVol->GetName() + "_OpSkin";
+        G4OpticalSurface* optSurf = new G4OpticalSurface(surfName, model,
+                                                          finish, type);
+        G4MaterialPropertiesTable* mpt = new G4MaterialPropertiesTable();
+        // Two energy points bracketing 128 nm (9.686 eV) -- enough for
+        // constant properties across the VUV range.
+        std::vector<double> energies = {9.586e-3*MeV, 9.786e-3*MeV};
+        std::vector<double> reflVec  = {reflectivity,  reflectivity};
+        std::vector<double> effVec   = {efficiency,    efficiency};
+        mpt->AddProperty("REFLECTIVITY", energies.data(), reflVec.data(), 2);
+        mpt->AddProperty("EFFICIENCY",   energies.data(), effVec.data(),  2);
+        optSurf->SetMaterialPropertiesTable(mpt);
+
+        new G4LogicalSkinSurface(surfName, logVol, optSurf);
+        EDepSimLog("OpSkinSurface for " << logVol->GetName()
+                   << " model=" << modelStr
+                   << " type=" << typeStr
+                   << " finish=" << finishStr
+                   << " R=" << reflectivity
+                   << " eff=" << efficiency);
     }
 
     // Add the EM field using a breadth first traversal of the geometry.  This
