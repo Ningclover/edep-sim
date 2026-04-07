@@ -15,6 +15,7 @@
 #include <G4TouchableHandle.hh>
 #include <G4Step.hh>
 #include <G4ParticleDefinition.hh>
+#include <G4VSensitiveDetector.hh>
 
 #include <G4UnitsTable.hh>
 #include <G4VisAttributes.hh>
@@ -41,6 +42,19 @@ EDepSim::HitSurface::HitSurface(const G4Step* theStep)
     :  fPrimaryId(0), fEnergyDeposit(0),
        fPosition(0,0,0,0), fStart(0,0,0,0),
        fPDGEncoding(0), fCreatorType(-1), fCreatorSubtype(-1) {
+    EDepSimError("HitSurface created:"
+                 << " track=" << theStep->GetTrack()->GetTrackID()
+                 << " parentID=" << theStep->GetTrack()->GetParentID()
+                 << " postVolume=" << (theStep->GetPostStepPoint()->GetPhysicalVolume()
+                                       ? theStep->GetPostStepPoint()->GetPhysicalVolume()->GetName()
+                                       : "NULL")
+                 << " postMaterial=" << (theStep->GetPostStepPoint()->GetMaterial()
+                                         ? theStep->GetPostStepPoint()->GetMaterial()->GetName()
+                                         : "NULL")
+                 << " SDname=" << (theStep->GetPostStepPoint()->GetPhysicalVolume()
+                                   && theStep->GetPostStepPoint()->GetPhysicalVolume()->GetLogicalVolume()->GetSensitiveDetector()
+                                   ? theStep->GetPostStepPoint()->GetPhysicalVolume()->GetLogicalVolume()->GetSensitiveDetector()->GetName()
+                                   : "none"));
     fPrimaryId = theStep->GetTrack()->GetParentID();
     fEnergyDeposit = theStep->GetTotalEnergyDeposit();
     fPosition = G4LorentzVector(theStep->GetPostStepPoint()->GetPosition(),

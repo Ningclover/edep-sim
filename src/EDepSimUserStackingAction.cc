@@ -23,6 +23,13 @@ EDepSim::UserStackingAction::ClassifyNewTrack(const G4Track* aTrack) {
 
     // if (aTrack->GetCurrentStepNumber() > 0) return fUrgent;
 
+    EDepSimError("ClassifyNewTrack:"
+                 << " particle=" << particle->GetParticleName()
+                 << " ParentID=" << aTrack->GetParentID()
+                 << " TrackID=" << aTrack->GetTrackID()
+                 << " KE=" << aTrack->GetKineticEnergy()/CLHEP::eV << " eV"
+                 << " KillOpticalPhotons=" << GetKillOpticalPhotons());
+
     if (aTrack->GetParentID() <= 0) return fUrgent;
 
     // This is where we can throw away particles that we don't want to track.

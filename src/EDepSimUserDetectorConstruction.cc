@@ -287,6 +287,9 @@ void EDepSim::UserDetectorConstruction::ConstructSDandField() {
                            << " is excluded");
                 continue;
             }
+            EDepSimError("Attaching SD: logVolume=" << aux->first->GetName()
+                        << " sdName=" << auxItem->value
+                        << " sdType=" << type);
             EDepSimLog("Sensitive detector for " << aux->first->GetName()
                        << " is " << type << "/" << auxItem->value);
             EDepSim::SDFactory factory;

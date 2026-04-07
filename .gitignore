@@ -14,3 +14,6 @@ Makefile
 *_C.*
 *.pcm
 *.png
+build/
+build-cmake/
+install/

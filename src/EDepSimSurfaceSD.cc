@@ -11,6 +11,9 @@
 #include <G4StepStatus.hh>
 #include <G4RunManager.hh>
 #include <G4OpticalParameters.hh>
+#include <G4OpBoundaryProcess.hh>
+#include <G4ProcessManager.hh>
+#include <G4ProcessVector.hh>
 
 #include <G4SystemOfUnits.hh>
 #include <G4PhysicalConstants.hh>
@@ -72,9 +75,41 @@ G4bool EDepSim::SurfaceSD::ProcessHits(G4Step* theStep,
     // Get the hit information.
     G4double energyDeposit = theStep->GetTotalEnergyDeposit();
 
-    // Check we got some energy deposit.  Having energy isn't enough to say
-    // there should be a hit, but there needs to be energy if there is a hit.
-    if (energyDeposit <= 0.) return true;
+    // Retrieve OpBoundary process status for diagnostics
+    G4OpBoundaryProcessStatus boundaryStatus = Undefined;
+    G4ProcessManager* pm = theStep->GetTrack()->GetDefinition()->GetProcessManager();
+    if (pm) {
+        G4ProcessVector* pv = pm->GetProcessList();
+        for (std::size_t i = 0; i < (std::size_t)pv->size(); ++i) {
+            G4OpBoundaryProcess* bp = dynamic_cast<G4OpBoundaryProcess*>((*pv)[i]);
+            if (bp) { boundaryStatus = bp->GetStatus(); break; }
+        }
+    }
+
+    EDepSimError("SurfaceSD::ProcessHits called:"
+                 << " particle=" << theStep->GetTrack()->GetParticleDefinition()->GetParticleName()
+                 << " energyDeposit=" << energyDeposit/CLHEP::eV << " eV"
+                 << " postStepEnergy=" << theStep->GetPostStepPoint()->GetTotalEnergy()/CLHEP::eV << " eV"
+                 << " preVolume=" << (theStep->GetPreStepPoint()->GetPhysicalVolume()
+                                      ? theStep->GetPreStepPoint()->GetPhysicalVolume()->GetName()
+                                      : "NULL")
+                 << " postVolume=" << (theStep->GetPostStepPoint()->GetPhysicalVolume()
+                                       ? theStep->GetPostStepPoint()->GetPhysicalVolume()->GetName()
+                                       : "NULL")
+                 << " stepStatus=" << theStep->GetPostStepPoint()->GetStepStatus()
+                 << " boundaryStatus=" << boundaryStatus
+                 << " preMaterial=" << (theStep->GetPreStepPoint()->GetMaterial()
+                                        ? theStep->GetPreStepPoint()->GetMaterial()->GetName()
+                                        : "NULL")
+                 << " postMaterial=" << (theStep->GetPostStepPoint()->GetMaterial()
+                                         ? theStep->GetPostStepPoint()->GetMaterial()->GetName()
+                                         : "NULL"));
+
+    // For optical photons crossing a boundary the ionization energy deposit is
+    // zero, so use the post-step total energy instead.  For charged particles
+    // keep the original guard: skip steps with no energy deposit.
+    // G4double hitEnergy = theStep->GetPostStepPoint()->GetTotalEnergy();
+    // if (energyDeposit <= 0. && hitEnergy <= 0.) return true;
 
     const G4Track* theTrack = theStep->GetTrack();
     const G4VProcess* theProcess = theTrack->GetCreatorProcess();
@@ -85,7 +120,7 @@ G4bool EDepSim::SurfaceSD::ProcessHits(G4Step* theStep,
     const G4ThreeVector& hitPosition = thePostStep->GetPosition();
     const G4double hitTime = thePostStep->GetGlobalTime();
     G4ThreeVector hitPolarization = thePostStep->GetPolarization();
-    G4double hitEnergy = thePostStep->GetTotalEnergy();
+    G4double hitEnergy = thePostStep->GetTotalEnergy();  // moved above for optical photon guard
 
     std::string processName{"non-set"};
     if (theProcess != nullptr) {
@@ -118,8 +153,13 @@ G4bool EDepSim::SurfaceSD::ProcessHits(G4Step* theStep,
     }
 
     if (theProcess == nullptr) {
-        // No process here, so don't create this step.
-        return true;
+        // Primary particles have no creator process. For optical photons
+        // (primaries fired by GPS) we still want to record the hit.
+        if (theParticle->GetPDGEncoding() != -22) {
+            EDepSimError("SurfaceSD: no creator process, skipping non-optical hit");
+            return true;
+        }
+        EDepSimError("SurfaceSD: primary opticalphoton hit recorded (no creator process)");
     }
 
     EDepSimDebug("Create Hit:"
